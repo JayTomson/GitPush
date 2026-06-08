@@ -88,7 +88,6 @@ fun ProjectDetailScreen(
             val root = DocumentFile.fromTreeUri(context, Uri.parse(proj.folderUri))
             val list = mutableListOf<String>()
             if (root != null && root.isDirectory) {
-                val rootName = root.name ?: "Project"
                 fun collectFiles(dir: DocumentFile, currentPath: String) {
                     dir.listFiles().forEach { file ->
                         if (file.name?.startsWith(".git") == true) return@forEach
@@ -113,7 +112,7 @@ fun ProjectDetailScreen(
                         }
                     }
                 }
-                collectFiles(root, rootName)
+                collectFiles(root, "")
             }
             withContext(Dispatchers.Main) {
                 fileList = list
