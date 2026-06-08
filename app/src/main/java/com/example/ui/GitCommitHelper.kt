@@ -22,9 +22,15 @@ class GitCommitHelper(
         branch: String,
         folderUri: Uri,
         commitMessage: String,
+        changedFiles: List<String>? = null,
         onProgress: (String) -> Unit
     ) = withContext(Dispatchers.IO) {
         try {
+            if (changedFiles != null && changedFiles.isEmpty()) {
+                onProgress("No changes to commit.")
+                return@withContext
+            }
+
             onProgress("Getting latest commit on $branch...")
             val ref = service.getBranchRef(owner, repo, branch, authHeader)
             val latestCommitSha = ref.`object`.sha
@@ -42,6 +48,8 @@ class GitCommitHelper(
             val treeItems = mutableListOf<TreeItem>()
 
             for ((path, file) in allFiles) {
+                if (changedFiles != null && !changedFiles.contains(path)) continue
+
                 onProgress("Uploading $path...")
                 
                 // Read and encode file

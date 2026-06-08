@@ -81,6 +81,7 @@ class MainActivity : ComponentActivity() {
                 projectId = id,
                 projectDao = database.projectDao(),
                 settingsRepository = settingsRepository,
+                githubService = githubService,
                 gitCommitHelperFactory = { token ->
                    GitCommitHelper(githubService, applicationContext, token)
                 },

@@ -25,12 +25,24 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+import com.example.data.remote.GitHubService
+import java.security.MessageDigest
+
+fun calculateGitSha1(bytes: ByteArray): String {
+    val prefix = "blob ${bytes.size}\u0000".toByteArray(Charsets.UTF_8)
+    val md = MessageDigest.getInstance("SHA-1")
+    md.update(prefix)
+    md.update(bytes)
+    return md.digest().joinToString("") { "%02x".format(it) }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProjectDetailScreen(
     projectId: Int,
     projectDao: ProjectDao,
     settingsRepository: SettingsRepository,
+    githubService: GitHubService,
     gitCommitHelperFactory: (String) -> GitCommitHelper,
     onNavigateBack: () -> Unit
 ) {
@@ -46,6 +58,33 @@ fun ProjectDetailScreen(
     suspend fun refreshFiles() {
         val proj = project ?: return
         withContext(Dispatchers.IO) {
+            val token = settingsRepository.token.first()
+            val authHeader = "Bearer $token"
+            
+            val remoteTreeItems = mutableMapOf<String, String>()
+            if (token.isNotEmpty()) {
+                val parts = proj.repo.trim('/').split("/")
+                if (parts.size >= 2) {
+                    val owner = parts[parts.size - 2]
+                    val repoName = parts[parts.size - 1].removeSuffix(".git")
+                    try {
+                        val ref = githubService.getBranchRef(owner, repoName, proj.branch, authHeader)
+                        val latestCommitSha = ref.`object`.sha
+                        val currentCommit = githubService.getCommit(owner, repoName, latestCommitSha, authHeader)
+                        val baseTreeSha = currentCommit.tree.sha
+                        
+                        val treeRes = githubService.getTree(owner, repoName, baseTreeSha, authHeader)
+                        treeRes.tree.forEach {
+                            if (it.type == "blob") {
+                                remoteTreeItems[it.path] = it.sha
+                            }
+                        }
+                    } catch(e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+            }
+
             val root = DocumentFile.fromTreeUri(context, Uri.parse(proj.folderUri))
             val list = mutableListOf<String>()
             if (root != null && root.isDirectory) {
@@ -53,7 +92,24 @@ fun ProjectDetailScreen(
                     dir.listFiles().forEach { file ->
                         if (file.name?.startsWith(".git") == true) return@forEach
                         val path = if (currentPath.isEmpty()) file.name!! else "$currentPath/${file.name}"
-                        if (file.isDirectory) collectFiles(file, path) else list.add(path)
+                        if (file.isDirectory) {
+                            collectFiles(file, path)
+                        } else {
+                            val remoteSha = remoteTreeItems[path]
+                            var isModified = true
+                            if (remoteSha != null) {
+                                try {
+                                    val inputStream = context.contentResolver.openInputStream(file.uri)
+                                    val bytes = inputStream?.readBytes() ?: ByteArray(0)
+                                    inputStream?.close()
+                                    val localSha = calculateGitSha1(bytes)
+                                    if (localSha == remoteSha) {
+                                        isModified = false
+                                    }
+                                } catch (e: Exception) { }
+                            }
+                            if (isModified) list.add(path)
+                        }
                     }
                 }
                 collectFiles(root, "")
@@ -123,6 +179,7 @@ fun ProjectDetailScreen(
                                     branch = project!!.branch,
                                     folderUri = Uri.parse(project!!.folderUri),
                                     commitMessage = commitMessage,
+                                    changedFiles = fileList,
                                     onProgress = { statusMessage = it }
                                 )
                                 showDialog = false

@@ -24,7 +24,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.local.ProjectDao
 import com.example.data.local.ProjectEntity
 
-@OptIn(ExperimentalMaterial3Api::class)
+import androidx.compose.foundation.combinedClickable
+import kotlinx.coroutines.launch
+
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun HomeScreen(
     projectDao: ProjectDao,
@@ -33,6 +36,29 @@ fun HomeScreen(
     onNavigateToSettings: () -> Unit
 ) {
     val projects by projectDao.getAll().collectAsStateWithLifecycle(initialValue = emptyList())
+    var projectToDelete by remember { mutableStateOf<ProjectEntity?>(null) }
+    val coroutineScope = rememberCoroutineScope()
+
+    if (projectToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { projectToDelete = null },
+            title = { Text("Delete Project") },
+            text = { Text("Are you sure you want to delete '${projectToDelete?.name}' from the app?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    coroutineScope.launch {
+                        projectDao.delete(projectToDelete!!)
+                        projectToDelete = null
+                    }
+                }) {
+                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { projectToDelete = null }) { Text("Cancel") }
+            }
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -84,7 +110,7 @@ fun HomeScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding),
-                contentPadding = PaddingValues(16.dp),
+                contentPadding = PaddingValues(top = 8.dp, bottom = 16.dp, start = 16.dp, end = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 item {
@@ -95,23 +121,31 @@ fun HomeScreen(
                             letterSpacing = 2.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         ),
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)
+                        modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 4.dp)
                     )
                 }
                 items(projects) { project ->
-                    ProjectCard(project, onClick = { onNavigateToProject(project.id) })
+                    ProjectCard(
+                        project = project,
+                        onClick = { onNavigateToProject(project.id) },
+                        onLongClick = { projectToDelete = project }
+                    )
                 }
             }
         }
     }
 }
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-fun ProjectCard(project: ProjectEntity, onClick: () -> Unit) {
+fun ProjectCard(project: ProjectEntity, onClick: () -> Unit, onLongClick: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onClick() },
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick
+            ),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)

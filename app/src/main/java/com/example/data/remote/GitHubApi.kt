@@ -25,6 +25,20 @@ data class GitHubCommit(
 )
 
 @JsonClass(generateAdapter = true)
+data class GitHubTreeItem(
+    val path: String,
+    val mode: String,
+    val type: String,
+    val sha: String
+)
+
+@JsonClass(generateAdapter = true)
+data class GitHubTreeResponse(
+    val sha: String,
+    val tree: List<GitHubTreeItem>
+)
+
+@JsonClass(generateAdapter = true)
 data class GitHubCommitTree(
     val sha: String
 )
@@ -104,6 +118,13 @@ interface GitHubService {
         @Header("Authorization") auth: String
     ): GitHubUser
 
+    @GET("user/repos")
+    suspend fun getUserRepos(
+        @Header("Authorization") auth: String,
+        @Query("visibility") visibility: String = "all",
+        @Query("per_page") perPage: Int = 100
+    ): List<RepositoryResponse>
+
     @POST("user/repos")
     suspend fun createRepository(
         @Header("Authorization") auth: String,
@@ -125,6 +146,14 @@ interface GitHubService {
         @Path("sha") sha: String,
         @Header("Authorization") auth: String
     ): GitHubCommit
+
+    @GET("repos/{owner}/{repo}/git/trees/{tree_sha}?recursive=1")
+    suspend fun getTree(
+        @Path("owner") owner: String,
+        @Path("repo") repo: String,
+        @Path("tree_sha") treeSha: String,
+        @Header("Authorization") auth: String
+    ): GitHubTreeResponse
 
     @POST("repos/{owner}/{repo}/git/blobs")
     suspend fun createBlob(

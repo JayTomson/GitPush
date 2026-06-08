@@ -122,6 +122,7 @@ fun SettingsScreen(
                 value = token,
                 onValueChange = { token = it },
                 label = { Text("Personal Access Token") },
+                supportingText = { Text("Requires 'repo' scope to create repositories and commit.") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 placeholder = { Text("ghp_...") }

@@ -21,6 +21,10 @@ import com.example.data.remote.CreateRepoRequest
 import com.example.data.remote.GitHubService
 import kotlinx.coroutines.launch
 
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import com.example.data.remote.RepositoryResponse
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddProjectScreen(
@@ -45,6 +49,24 @@ fun AddProjectScreen(
     var isSaving by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
+    var searchQuery by remember { mutableStateOf("") }
+    var userRepos by remember { mutableStateOf<List<RepositoryResponse>>(emptyList()) }
+    var isLoadingRepos by remember { mutableStateOf(false) }
+    var showConfirmDialog by remember { mutableStateOf<String?>(null) }
+    var confirmTypedName by remember { mutableStateOf("") }
+
+    LaunchedEffect(selectedTab, token) {
+        if (selectedTab == 0 && token.isNotEmpty() && userRepos.isEmpty()) {
+            isLoadingRepos = true
+            try {
+                userRepos = githubService.getUserRepos("Bearer $token")
+            } catch (e: Exception) {
+            } finally {
+                isLoadingRepos = false
+            }
+        }
+    }
+
     val documentTreeLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree()
     ) { uri: Uri? ->
@@ -55,6 +77,46 @@ fun AddProjectScreen(
             )
             folderUri = uri
         }
+    }
+
+    if (showConfirmDialog != null) {
+        AlertDialog(
+            onDismissRequest = { 
+                showConfirmDialog = null
+                confirmTypedName = "" 
+            },
+            title = { Text("Confirm Link") },
+            text = {
+                Column {
+                    Text("Type the repository name to connect:")
+                    Text(showConfirmDialog!!, fontWeight = FontWeight.Bold, modifier = Modifier.padding(vertical = 4.dp))
+                    OutlinedTextField(
+                        value = confirmTypedName,
+                        onValueChange = { confirmTypedName = it },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        repoUrlOrName = showConfirmDialog!!
+                        showConfirmDialog = null
+                        confirmTypedName = ""
+                    },
+                    enabled = confirmTypedName == showConfirmDialog!!
+                ) {
+                    Text("Confirm")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { 
+                    showConfirmDialog = null
+                    confirmTypedName = "" 
+                }) { Text("Cancel") }
+            }
+        )
     }
 
     Scaffold(
@@ -111,13 +173,53 @@ fun AddProjectScreen(
                 )
 
                 if (selectedTab == 0) {
-                    OutlinedTextField(
-                        value = repoUrlOrName,
-                        onValueChange = { repoUrlOrName = it },
-                        label = { Text("Repository (e.g., owner/repo)") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
-                    )
+                    if (token.isEmpty()) {
+                        OutlinedTextField(
+                            value = repoUrlOrName,
+                            onValueChange = { repoUrlOrName = it },
+                            label = { Text("Repository (e.g., owner/repo)") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true
+                        )
+                        Text("Connect a GitHub token in settings to see your repositories list.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    } else {
+                        OutlinedTextField(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            label = { Text("Search Repositories") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true
+                        )
+                        if (isLoadingRepos) {
+                            CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
+                        } else {
+                            val filteredRepos = userRepos.filter { it.full_name.contains(searchQuery, ignoreCase = true) }
+                            LazyColumn(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                items(filteredRepos) { repo ->
+                                    Card(
+                                        onClick = { showConfirmDialog = repo.full_name },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        colors = CardDefaults.cardColors(
+                                            containerColor = if (repoUrlOrName == repo.full_name) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
+                                        ),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                                    ) {
+                                        Text(
+                                            text = repo.full_name,
+                                            modifier = Modifier.padding(16.dp),
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = if (repoUrlOrName == repo.full_name) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
                 } else {
                     OutlinedTextField(
                         value = newRepoName,
@@ -171,7 +273,9 @@ fun AddProjectScreen(
                     Text(errorMessage!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 }
 
-                Spacer(modifier = Modifier.weight(1f))
+                if (selectedTab != 0 || token.isEmpty()) {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
 
                 val isFormValid = name.isNotBlank() && folderUri != null && 
                         if (selectedTab == 0) repoUrlOrName.isNotBlank() else (newRepoName.isNotBlank() && token.isNotEmpty())
@@ -212,6 +316,12 @@ fun AddProjectScreen(
                                         )
                                     )
                                     onNavigateBack()
+                                } catch (e: retrofit2.HttpException) {
+                                    if (e.code() == 403) {
+                                        errorMessage = "Error: 403 Forbidden. Is your token provided with 'repo' scope?"
+                                    } else {
+                                        errorMessage = "Error creating repository: ${e.message()}"
+                                    }
                                 } catch (e: Exception) {
                                     errorMessage = "Error creating repository: ${e.localizedMessage}"
                                 } finally {
