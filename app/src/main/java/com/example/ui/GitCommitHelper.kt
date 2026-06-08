@@ -44,7 +44,7 @@ class GitCommitHelper(
                 throw Exception("Invalid folder selected")
             }
 
-            val allFiles = getFilesRecursively(rootDocFile)
+            val allFiles = getFilesRecursively(rootDocFile, rootDocFile.name ?: "Project")
             val treeItems = mutableListOf<TreeItem>()
 
             for ((path, file) in allFiles) {
