@@ -1,21 +1,14 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# GitHub Folder Sync
 
-# Run and deploy your AI Studio app
+Простое и удобное Android-приложение для синхронизации локальных файлов с вашими репозиториями на GitHub. Позволяет делать коммиты прямо с телефона без сложных терминальных команд.
 
-This contains everything you need to run your app locally.
+## Что умеет приложение?
+- **Подключение по токену:** Безопасный вход через GitHub Personal Access Token (PAT).
+- **Выбор репозитория:** Можно привязать локальную папку к существующему репозиторию или создать новый.
+- **Умное отслеживание изменений:** Сравнивает локальные файлы и файлы на GitHub, выводя на экран только изменённые или новые (проверка по хэшам SHA-1).
+- **Мгновенные коммиты:** Быстрая отправка файлов в репозиторий в один клик.
 
-View your app in AI Studio: https://ai.studio/apps/1e4955d4-307a-421a-9219-bbf59c17f3ef
-
-## Run Locally
-
-**Prerequisites:**  [Android Studio](https://developer.android.com/studio)
-
-
-1. Open Android Studio
-2. Select **Open** and choose the directory containing this project
-3. Allow Android Studio to fix any incompatibilities as it imports the project.
-4. Create a file named `.env` in the project directory and set `GEMINI_API_KEY` in that file to your Gemini API key (see `.env.example` for an example)
-5. Remove this line from the app's `build.gradle.kts` file: `signingConfig = signingConfigs.getByName("debugConfig")`
-6. Run the app on an emulator or physical device
+## Стек
+- **Kotlin** & **Jetpack Compose** (UI)
+- **Retrofit** (работа с GitHub REST API)
+- **Room Database** (локальное хранение проектов)
