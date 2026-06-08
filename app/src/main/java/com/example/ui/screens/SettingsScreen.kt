@@ -3,6 +3,8 @@ package com.example.ui.screens
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Done
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.Icons
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,12 +27,27 @@ fun SettingsScreen(
     var isTesting by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
 
+    var isConnected by remember { mutableStateOf<Boolean?>(null) }
+
     // Load initial values
     LaunchedEffect(Unit) {
         settingsRepository.username.collect { username = it }
     }
     LaunchedEffect(Unit) {
-        settingsRepository.token.collect { token = it }
+        settingsRepository.token.collect { currentToken ->
+            token = currentToken
+            if (currentToken.isNotBlank()) {
+                try {
+                    val user = githubService.getUser("Bearer $currentToken")
+                    isConnected = true
+                    username = user.login
+                } catch (e: Exception) {
+                    isConnected = false
+                }
+            } else {
+                isConnected = false
+            }
+        }
     }
 
     Scaffold(
@@ -63,6 +80,35 @@ fun SettingsScreen(
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.primary
             )
+
+            if (isConnected != null) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                ) {
+                    Icon(
+                        imageVector = if (isConnected == true) 
+                            Icons.Default.Done 
+                        else 
+                            Icons.Default.Warning,
+                        contentDescription = "Status",
+                        tint = if (isConnected == true) 
+                            androidx.compose.ui.graphics.Color(0xFF3DDC84) 
+                        else 
+                            MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = if (isConnected == true) "Connected as $username" else "Not Connected or Invalid Token",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (isConnected == true) 
+                            androidx.compose.ui.graphics.Color(0xFF3DDC84) 
+                        else 
+                            MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
             
             OutlinedTextField(
                 value = username,
