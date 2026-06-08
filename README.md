@@ -12,3 +12,6 @@
 - **Kotlin** & **Jetpack Compose** (UI)
 - **Retrofit** (работа с GitHub REST API)
 - **Room Database** (локальное хранение проектов)
+
+## Лицензия
+Проект распространяется под лицензией [MIT](LICENSE).
