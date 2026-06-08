@@ -129,6 +129,28 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.weight(1f))
 
+            if (token.isNotEmpty() || username.isNotEmpty()) {
+                OutlinedButton(
+                    onClick = {
+                        coroutineScope.launch {
+                            settingsRepository.saveSettings("", "")
+                            username = ""
+                            token = ""
+                            isConnected = false
+                            snackbarHostState.showSnackbar("Disconnected successfully.")
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    ),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Disconnect", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                }
+            }
+
             Button(
                 onClick = {
                     coroutineScope.launch {
