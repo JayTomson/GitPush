@@ -124,7 +124,7 @@ fun HomeScreen(
                         modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 4.dp)
                     )
                 }
-                items(projects) { project ->
+                items(projects, key = { it.id }) { project ->
                     ProjectCard(
                         project = project,
                         onClick = { onNavigateToProject(project.id) },

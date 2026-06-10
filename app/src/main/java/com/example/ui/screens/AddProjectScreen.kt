@@ -200,7 +200,7 @@ fun AddProjectScreen(
                                     .fillMaxWidth(),
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                items(filteredRepos) { repo ->
+                                items(filteredRepos, key = { it.full_name }) { repo ->
                                     Card(
                                         onClick = { showConfirmDialog = repo.full_name },
                                         modifier = Modifier.fillMaxWidth(),

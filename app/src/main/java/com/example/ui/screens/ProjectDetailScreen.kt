@@ -28,11 +28,24 @@ import kotlinx.coroutines.withContext
 import com.example.data.remote.GitHubService
 import java.security.MessageDigest
 
-fun calculateGitSha1(bytes: ByteArray): String {
-    val prefix = "blob ${bytes.size}\u0000".toByteArray(Charsets.UTF_8)
+import android.content.Context
+
+fun calculateGitSha1ForUri(context: Context, uri: Uri, size: Long): String {
     val md = MessageDigest.getInstance("SHA-1")
+    val prefix = "blob $size\u0000".toByteArray(Charsets.UTF_8)
     md.update(prefix)
-    md.update(bytes)
+    
+    try {
+        context.contentResolver.openInputStream(uri)?.use { inputStream ->
+            val buffer = ByteArray(8192)
+            var bytesRead: Int
+            while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                md.update(buffer, 0, bytesRead)
+            }
+        }
+    } catch (e: Exception) {
+        // Fallback or empty if not accessible
+    }
     return md.digest().joinToString("") { "%02x".format(it) }
 }
 
@@ -99,10 +112,7 @@ fun ProjectDetailScreen(
                             var isModified = true
                             if (remoteSha != null) {
                                 try {
-                                    val inputStream = context.contentResolver.openInputStream(file.uri)
-                                    val bytes = inputStream?.readBytes() ?: ByteArray(0)
-                                    inputStream?.close()
-                                    val localSha = calculateGitSha1(bytes)
+                                    val localSha = calculateGitSha1ForUri(context, file.uri, file.length())
                                     if (localSha == remoteSha) {
                                         isModified = false
                                     }
@@ -317,7 +327,7 @@ fun ProjectDetailScreen(
 
                             Box(modifier = Modifier.heightIn(max = 200.dp)) {
                                 LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    items(fileList) { path ->
+                                    items(fileList, key = { it }) { path ->
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.SpaceBetween,

@@ -10,6 +10,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.local.SettingsRepository
 import com.example.data.remote.GitHubService
 import kotlinx.coroutines.launch
@@ -22,6 +23,10 @@ fun SettingsScreen(
     onNavigateBack: () -> Unit
 ) {
     val coroutineScope = rememberCoroutineScope()
+    
+    val savedUsername by settingsRepository.username.collectAsStateWithLifecycle("")
+    val savedToken by settingsRepository.token.collectAsStateWithLifecycle("")
+
     var username by remember { mutableStateOf("") }
     var token by remember { mutableStateOf("") }
     var isTesting by remember { mutableStateOf(false) }
@@ -29,24 +34,24 @@ fun SettingsScreen(
 
     var isConnected by remember { mutableStateOf<Boolean?>(null) }
 
-    // Load initial values
-    LaunchedEffect(Unit) {
-        settingsRepository.username.collect { username = it }
+    LaunchedEffect(savedUsername) {
+        if (savedUsername.isNotEmpty() && username.isEmpty()) {
+            username = savedUsername
+        }
     }
-    LaunchedEffect(Unit) {
-        settingsRepository.token.collect { currentToken ->
-            token = currentToken
-            if (currentToken.isNotBlank()) {
-                try {
-                    val user = githubService.getUser("Bearer $currentToken")
-                    isConnected = true
-                    username = user.login
-                } catch (e: Exception) {
-                    isConnected = false
-                }
-            } else {
+
+    LaunchedEffect(savedToken) {
+        if (savedToken.isNotEmpty() && token.isEmpty()) {
+            token = savedToken
+            try {
+                val user = githubService.getUser("Bearer $savedToken")
+                isConnected = true
+                username = user.login
+            } catch (e: Exception) {
                 isConnected = false
             }
+        } else if (savedToken.isEmpty()) {
+            isConnected = false
         }
     }
 
